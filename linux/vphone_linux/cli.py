@@ -18,7 +18,7 @@ from typing import Optional
 
 import typer
 
-from . import bootcmd, disks, ipsw, qemu_build, runner, util
+from . import bootcmd, disks, ipsw, network, qemu_build, runner, util
 from .backends import get_backend
 from .config import Config
 from .device import get_profile
@@ -53,17 +53,23 @@ def init(
     device: str = typer.Option("t8030", help="Device profile (iPhone 11 = t8030)"),
     cpus: int = typer.Option(4),
     memory_mb: int = typer.Option(4096),
+    net: str = typer.Option("usb-bridge", help="network mode: usb-bridge | user | off"),
+    ssh_port: int = typer.Option(2222, help="host port forwarded to guest SSH"),
 ):
     """Create a workspace and write its config."""
     be = get_backend(backend)
     prof = get_profile(device)
-    cfg = Config(backend=be.key, device=prof.key, cpus=cpus, memory_mb=memory_mb)
+    cfg = Config(
+        backend=be.key, device=prof.key, cpus=cpus, memory_mb=memory_mb,
+        network=net, ssh_host_port=ssh_port,
+    )
     cfg.save(workspace)
     for d in Config.workspace_dirs().values():
         (workspace / d).mkdir(parents=True, exist_ok=True)
     util.ok(f"workspace ready at {workspace}")
     util.info(f"backend: {be.name}")
     util.info(f"device:  {prof.describe()}")
+    util.info(network.describe(cfg))
     util.dim(be.notes)
 
 
@@ -170,6 +176,46 @@ def boot(workspace: Path = typer.Argument(...), main_gb: int = typer.Option(16))
     raise typer.Exit(runner.run_plan(p, logs, "boot.log"))
 
 
+# ─── companion (networking bridge VM) ─────────────────────────────────
+@app.command()
+def companion(
+    workspace: Path = typer.Argument(...),
+    qemu: Optional[str] = typer.Option(None, help="x86_64 QEMU binary (default: system qemu-system-x86_64)"),
+    dry_run: bool = typer.Option(False, help="print the command instead of running"),
+):
+    """Run the companion Linux VM that gives the iPhone internet (usb-bridge mode).
+
+    Start this BEFORE `boot`/`restore` when network = usb-bridge: the iOS VM
+    exposes its USB on a socket and the companion bridges it to the internet.
+    """
+    cfg, _, _ = _resolve(workspace)
+    if cfg.network != "usb-bridge":
+        util.warn(f"network mode is '{cfg.network}', companion only applies to usb-bridge")
+        raise typer.Exit(1)
+    try:
+        argv = network.companion_argv(cfg, workspace, qemu)
+    except ValueError as exc:
+        util.err(str(exc))
+        raise typer.Exit(2)
+    if dry_run:
+        print(" \\\n    ".join(argv))
+        return
+    logs = workspace / Config.workspace_dirs()["logs"]
+    raise typer.Exit(runner.run_plan(bootcmd.BootPlan(argv=argv, description="Companion bridge VM"), logs, "companion.log"))
+
+
+# ─── ssh helper ───────────────────────────────────────────────────────
+@app.command()
+def ssh(workspace: Path = typer.Argument(...)):
+    """Print the SSH command to reach the booted iPhone."""
+    cfg, _, _ = _resolve(workspace)
+    if cfg.network == "off":
+        util.err("networking is off; enable usb-bridge or user mode first")
+        raise typer.Exit(1)
+    util.info(network.describe(cfg))
+    print(f"ssh -p {cfg.ssh_host_port} root@127.0.0.1   # password: alpine")
+
+
 # ─── clean ────────────────────────────────────────────────────────────
 @app.command()
 def clean(
@@ -193,6 +239,7 @@ def info(workspace: Path = typer.Argument(...)):
     util.info(f"backend: {backend.name}")
     util.info(f"device:  {profile.describe()}")
     util.info(f"cpus={cfg.cpus} memory={cfg.memory_mb}MiB gdb={cfg.gdb_stub}")
+    util.info(network.describe(cfg))
     built = qemu_build.qemu_binary_path(workspace, backend)
     (util.ok if built.exists() else util.warn)(
         f"qemu: {'built' if built.exists() else 'not built'} ({built})"

@@ -38,6 +38,29 @@ class Config:
     gdb_stub: bool = True       # qemu -s (gdb on :1234)
     monitor_telnet_port: int = 1235
 
+    # ─── networking ──────────────────────────────────────────────────
+    # How the emulated iPhone reaches the network. The t8030 SoC has no
+    # plain ethernet NIC that iOS binds for internet; the real path is USB
+    # tethering bridged through a companion Linux VM.
+    #   "usb-bridge" — expose iOS USB over a socket + run a companion VM
+    #                  that NATs to the internet (the documented, working way)
+    #   "user"       — attach a QEMU user-mode netdev directly (only forks
+    #                  that expose an in-machine NIC; convenient when it works)
+    #   "off"        — no networking
+    network: str = "usb-bridge"
+    # unix socket the iOS USB is exposed on (workspace-relative)
+    usb_socket: str = "usbqemu.sock"
+    # host TCP port forwarded to the guest's SSH (22)
+    ssh_host_port: int = 2222
+    # device string used to attach the iOS-side USB bridge. Kept as config
+    # because forks differ; this is the documented qemu-t8030 form.
+    usb_bridge_device: str = "usb-tcp-remote"
+    # companion VM (used only for network = "usb-bridge")
+    companion_image: str = ""    # path to a bootable Linux disk image
+    companion_kernel: str = ""   # optional explicit kernel
+    companion_memory_mb: int = 1024
+    companion_cpus: int = 2
+
     # ─── workspace-relative layout ───────────────────────────────────
     @staticmethod
     def workspace_dirs() -> dict[str, str]:

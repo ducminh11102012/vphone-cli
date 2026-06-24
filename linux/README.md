@@ -80,6 +80,28 @@ vphone-linux boot ./ws
 
 `vphone-linux info ./ws` shows current state at any time.
 
+## Networking (the iPhone has no network by default — fixed here)
+
+The emulated t8030 has **no plain ethernet NIC** iOS will use; on real
+hardware and in these forks the phone only reaches the network over **USB**.
+The stock wiki boot commands add no network devices at all — which is why the
+VM appears offline. `vphone-linux` closes this gap with three modes:
+
+```bash
+vphone-linux init ./ws --net usb-bridge   # default: USB → companion VM → internet
+vphone-linux companion ./ws               # start the bridge VM first…
+vphone-linux boot ./ws                     # …then boot the phone
+vphone-linux ssh ./ws                      # prints the SSH command to the phone
+```
+
+- `usb-bridge` (default) — exposes the phone's USB on a socket and runs a
+  small companion Linux VM that NATs it to the internet. The reliable path.
+- `user` — attaches a QEMU user-mode netdev directly (forks that expose a NIC).
+- `off` — no networking.
+
+Full details, companion-image requirements, and the exact device wiring are in
+[`NETWORKING.md`](./NETWORKING.md).
+
 ## Workspace layout
 
 A workspace is self-contained and movable:
