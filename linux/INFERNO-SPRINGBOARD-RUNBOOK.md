@@ -103,11 +103,73 @@ restore — the only way to a booted OS / SpringBoard — additionally requires
   nand-enable-reformat=1`).
 - `boot-mode=exit_recovery` → set `auto-boot=true`, boot the restored OS.
 
+## SEP ROM is NOT strictly required (source-verified)
+
+`hw/arm/apple-silicon/t8030.c:2972` gates SEP like this:
+
+```c
+if (sep_rom_filename && sep_fw_filename) {
+    t8030_create_sep(t8030);              // real SEP, supports data encryption
+} else {
+#ifdef ENABLE_DATA_ENCRYPTION
+    error_setg(..., "Simulated SEP cannot be used with data encryption ...");
+#else
+    t8030_create_sep_sim(t8030);          // simulated SEP, data volume NOT encrypted
+#endif
+}
+```
+
+So building with `ENABLE_DATA_ENCRYPTION` commented out (this runbook's build)
+selects **simulated SEP** and a restore can proceed **without any copyrighted
+Apple SEP ROM / SecureROM dump** — the Data volume just isn't encrypted. The
+official guide uses a real `AppleSEPROM-Cebu-B1` dump for a faithful (encrypted)
+restore, but it is not mandatory for reaching SpringBoard.
+
+## Full restore → SpringBoard procedure (Inferno)
+
+1. Build with **both** targets: `--target-list=aarch64-softmmu,x86_64-softmmu`.
+2. **Companion VM** — boot a normal x86_64 Linux guest under `qemu-system-x86_64`
+   with `-usb -device usb-ehci,id=ehci -device usb-tcp-remote,bus=ehci.0`
+   (defaults to the `/tmp/InfernoUSBRemote` Unix socket). Install
+   `idevicerestore` + `usbmuxd` in the guest. **Start the companion before the
+   main VM.**
+3. **Main VM** — the `-M t8030,...` boot command from "Running & Restoring" with
+   the Erase ramdisk via `-initrd` and a display flag
+   (`-display gtk,zoom-to-fit=on,show-cursor=on`).
+4. **Kick the restore in the companion**:
+   ```
+   idevicerestore --erase --restore-mode -i 0x1122334455667788 <ipsw> -T root_ticket.der
+   ```
+   The main VM auto-closes when restore stage 1 finishes.
+5. **Filesystem patches** (software rendering — the QuartzCore/Metal-context fix):
+   - Mount the `root` raw image (macOS: `hdiutil attach -imagekey
+     diskimage-class=CRawDiskImage -blocksize 4096 -noverify -noautofsck root`;
+     Linux: `apfs-fuse`).
+   - `git clone https://git.chefkiss.dev/AppleHax/InfernoFSPatcher`, build with
+     CMake, then
+     `sudo build/inferno_fs_patcher /Volumes/System/.../dyld_shared_cache_arm64e`.
+   - Disable the broken launch services in
+     `System/Library/xpc/launchd.plist` (add `Disabled=true`):
+     `com.apple.voicemail.vmd`, `com.apple.CommCenter`,
+     `com.apple.CommCenterMobileHelper`, `com.apple.CommCenterRootHelper`,
+     `com.apple.locationd`.
+6. **Reboot to SpringBoard**: relaunch the main VM with `boot-mode=exit_recovery`
+   (sets NVRAM `auto-boot=true`, boots the restored OS from NVMe partition 1).
+
+The eShard two-part series (eshard.com/blog) documents the same wall from the
+research side — their public result came from a *private* fork after person-months
+of RE (QEMU 8 port, PongoOS/checkra1n KPF, PAC + dyld-ASLR disable, dozens of
+userspace/framework patches, a custom multitouch SPI device, `chip-id` 8015 GPU
+workaround). Inferno packages the equivalents (KPF + InfernoFSPatcher + SEP
+emulation), which is why it is the reproducible route.
+
 ## Honest status
 
 - ✅ Emulator builds and runs; iOS 14 kernel + simulated SEP + userland
   (`restored_external`) execute; Apple-logo framebuffer rendered and screenshotted.
-- ⛔ SpringBoard not reached. It requires copyrighted Apple SEP/SecureROM dumps,
-  a full companion Linux VM running `idevicerestore`, and a many-hour nested-TCG
-  restore — best run on a real machine (ideally KVM-accelerated) per the official
-  guide, not inside an ephemeral CI container.
+- ⛔ SpringBoard not reached **in this environment**. It does not need ROM dumps
+  (simulated SEP works), but it does need a second x86_64 Linux VM running
+  `idevicerestore`, a multi-GB restore under nested TCG (no KVM here → many hours,
+  fragile), and the fs-patches above. That pipeline is meant for a real,
+  KVM-capable host with persistent disk — not an ephemeral 4-core CI container
+  that already wiped once mid-build. Follow the steps above on such a host.
