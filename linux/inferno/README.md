@@ -4,6 +4,29 @@ Scripts that encode the validated build + the official ChefKiss Inferno restore
 procedure (`chefkiss.dev/guides/inferno`). They get you from nothing to a booted
 SpringBoard **without any copyrighted Apple SEP/SecureROM dump** (simulated SEP).
 
+## Prebuilt binaries — skip the build
+
+`prebuilt/inferno-qemu-prebuilt-linux-x86_64.tar.xz` (9.5 MB) holds stripped,
+**ready-to-run** `qemu-system-aarch64` + `qemu-system-x86_64` + `qemu-img`,
+bundled with their 5 non-system libs. Unpack with **`./00-use-prebuilt.sh`**
+instead of running `01-build-inferno.sh`.
+
+- Target: **Linux x86_64, glibc ≥ 2.38** (Ubuntu 24.04+, Debian 13+, Fedora 38+,
+  recent Arch). You still need system `glib-2.0`, `pixman-1`, `gio-2.0`. Older
+  distro? Build from source with `01-build-inferno.sh`.
+- **What the prebuilt removes:** the ~15-min compile only.
+- **What it does NOT remove (still required for SpringBoard):** a legally-obtained
+  iOS 14.0 `iPhone12,1` IPSW (not redistributable here), a companion Linux VM with
+  the libimobiledevice stack, a **KVM-capable** host, and the multi-GB restore.
+- **Quickest real payoff:** with the prebuilt + an IPSW you can reach the **Apple
+  logo** in two commands and **zero building** — no companion needed:
+  ```bash
+  ./00-use-prebuilt.sh
+  ./02-extract-firmware.sh <IPSW>
+  MODE=restore ./04-run-main-vm.sh      # Apple logo + progress bar (restore-wait)
+  ```
+  SpringBoard additionally needs steps 3–7 below.
+
 > Run this on a real, **KVM-capable** Linux host with ≥6 GB RAM and ≥32 GB free.
 > ChefKiss's own prerequisites: *"a relatively lengthy process… no steps can be
 > skipped… this isn't really going to run on a Pentium."* It is **not** suited to
