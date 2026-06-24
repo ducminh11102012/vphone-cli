@@ -1,0 +1,6 @@
+# vphone-linux workspaces & build artefacts
+.venv*/
+__pycache__/
+*.pyc
+ws/
+*.egg-info/

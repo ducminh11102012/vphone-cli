@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vphone-linux"
+version = "0.1.0"
+description = "Turnkey iOS-on-QEMU orchestrator for Linux (vphone-cli's Linux sibling)"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "typer>=0.9",
+    "pyimg4",
+]
+
+[project.optional-dependencies]
+# Nicer TOML writing; the package works without it via a built-in fallback.
+toml = ["tomli_w"]
+# Reuse of the macOS-side firmware patcher tooling.
+patch = ["capstone", "keystone-engine"]
+
+[project.scripts]
+vphone-linux = "vphone_linux.cli:main"
+
+[tool.setuptools]
+packages = ["vphone_linux"]
