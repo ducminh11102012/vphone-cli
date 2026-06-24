@@ -53,6 +53,41 @@ pip install -r requirements.txt
 # or: pip install -e .
 ```
 
+## GUI (no commands needed)
+
+Prefer clicking to typing? Launch the local web control panel:
+
+```bash
+vphone-linux gui ./ws        # opens http://127.0.0.1:8723 in your browser
+```
+
+It's a zero-dependency page (Python stdlib only, works on Linux & Windows)
+that drives the exact same CLI under the hood and streams each command's
+output into a console pane: set the workspace, edit the config, then click
+Doctor / Build / Fetch / Prepare / Restore / Boot / Companion. No extra
+packages, no `pip install` of a web framework.
+
+## Performance on x86_64 (TCG tuning)
+
+x86_64 hosts are always TCG (KVM never applies). Three knobs make it smoother
+without affecting correctness — set them on `init` or in the GUI:
+
+```bash
+vphone-linux init ./ws --tcg-thread multi --tb-size-mb 512
+```
+
+- `--tcg-thread multi` — **MTTCG**: one host thread per guest vCPU (big win for
+  SMP). Opt-in because the fork's device models must be thread-safe; if you see
+  instability, fall back to `single`.
+- `--tb-size-mb` — larger translation-block cache → fewer costly
+  re-translations → smoother, at the cost of host RAM.
+- `mem_prealloc` (in `vphone-linux.toml`) — preallocate guest RAM for steadier
+  latency.
+
+These produce `-accel tcg,tb-size=<N>,thread=<single|multi>`. Combine with
+`--display gtk --gl on` so the host GPU handles presentation. iOS itself stays
+CPU-bound (software rendering) regardless — these reduce overhead around it.
+
 ## Quick start
 
 ```bash

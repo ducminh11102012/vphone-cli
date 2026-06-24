@@ -39,6 +39,16 @@ class BootPlan:
         return " \\\n    ".join(out)
 
 
+def _accel_args(cfg: Config) -> list[str]:
+    """TCG acceleration tuning (KVM never applies to t8030)."""
+    thread = cfg.tcg_thread if cfg.tcg_thread in ("single", "multi") else "single"
+    opts = ["tcg"]
+    if cfg.tb_size_mb and cfg.tb_size_mb > 0:
+        opts.append(f"tb-size={cfg.tb_size_mb}")
+    opts.append(f"thread={thread}")
+    return ["-accel", ",".join(opts)]
+
+
 def _nvme_args(disks_dir: Path, layout: list[Namespace], bus: str = "nvme-bus.0") -> list[str]:
     args: list[str] = []
     for ns in layout:
@@ -110,6 +120,7 @@ def build(
     argv: list[str] = [str(qemu_binary)]
     if cfg.gdb_stub:
         argv.append("-s")
+    argv += _accel_args(cfg)
     argv += ["-M", _machine_arg(backend, profile, fw, restore=restore)]
     argv += ["-kernel", str(kernel)]
     argv += ["-dtb", str(dtb)]
@@ -118,6 +129,8 @@ def build(
         argv += ["-initrd", str(ramdisk)]
     argv += ["-cpu", "max", "-smp", str(cfg.cpus)]
     argv += ["-m", f"{cfg.memory_mb // 1024}G" if cfg.memory_mb % 1024 == 0 else f"{cfg.memory_mb}M"]
+    if cfg.mem_prealloc:
+        argv += ["-mem-prealloc"]
     argv += ["-serial", "mon:stdio"]
     argv += _nvme_args(disks_dir, layout)
     argv += network.ios_network_args(cfg, workspace)
@@ -127,7 +140,8 @@ def build(
 
     desc = (
         f"{'RESTORE' if restore else 'BOOT'} {profile.name} via {backend.name} "
-        f"({cfg.cpus} CPU, {cfg.memory_mb} MiB) — {network.describe(cfg)}; "
+        f"({cfg.cpus} CPU, {cfg.memory_mb} MiB, TCG/{cfg.tcg_thread}, "
+        f"tb={cfg.tb_size_mb}MiB) — {network.describe(cfg)}; "
         f"{display.describe(cfg)}"
     )
     return BootPlan(argv=argv, description=desc)

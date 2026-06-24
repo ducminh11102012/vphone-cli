@@ -58,6 +58,8 @@ def init(
     disp: str = typer.Option("auto", "--display", help="display: auto|gtk|sdl|cocoa|egl-headless|vnc|none"),
     gl: str = typer.Option("on", help="host-GPU OpenGL presentation: on | off"),
     vnc: int = typer.Option(0, help="VNC display number (>0 enables VNC, overrides --display)"),
+    tcg_thread: str = typer.Option("single", help="TCG threading: single | multi (MTTCG, opt-in)"),
+    tb_size_mb: int = typer.Option(256, help="TCG translation-block cache size (MiB)"),
 ):
     """Create a workspace and write its config."""
     be = get_backend(backend)
@@ -66,6 +68,7 @@ def init(
         backend=be.key, device=prof.key, cpus=cpus, memory_mb=memory_mb,
         network=net, ssh_host_port=ssh_port,
         display=disp, gl=gl, vnc_display=vnc,
+        tcg_thread=tcg_thread, tb_size_mb=tb_size_mb,
     )
     cfg.save(workspace)
     for d in Config.workspace_dirs().values():
@@ -232,6 +235,20 @@ def clean(
     if disks_only:
         disks.reset_images(workspace / Config.workspace_dirs()["disks"], disks.default_layout(main_gb))
         util.ok("disk images reset")
+
+
+# ─── gui ──────────────────────────────────────────────────────────────
+@app.command()
+def gui(
+    workspace: Optional[Path] = typer.Argument(None, help="workspace to preload"),
+    port: int = typer.Option(8723, help="local port"),
+    host: str = typer.Option("127.0.0.1"),
+    no_browser: bool = typer.Option(False, "--no-browser", help="don't auto-open the browser"),
+):
+    """Launch the local web GUI (point-and-click, no commands)."""
+    from . import webgui
+
+    webgui.serve(str(workspace) if workspace else "", host=host, port=port, open_browser=not no_browser)
 
 
 # ─── info ─────────────────────────────────────────────────────────────

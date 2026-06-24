@@ -74,6 +74,18 @@ class Config:
     # When >0, the server listens on 127.0.0.1:(5900 + vnc_display).
     vnc_display: int = 0
 
+    # ─── acceleration / TCG tuning ───────────────────────────────────
+    # On x86_64 hosts everything is TCG (KVM never applies — see README).
+    # These knobs make TCG smoother without changing correctness:
+    #   tcg_thread = "multi" enables MTTCG (one host thread per vCPU). Big win
+    #     for SMP, but the fork's device models must be thread-safe — opt-in.
+    #   tb_size_mb sizes the translation-block cache; larger = fewer costly
+    #     re-translations (smoother), at the cost of host RAM.
+    #   mem_prealloc preallocates guest RAM for steadier latency.
+    tcg_thread: str = "single"   # single | multi
+    tb_size_mb: int = 256
+    mem_prealloc: bool = False
+
     # ─── workspace-relative layout ───────────────────────────────────
     @staticmethod
     def workspace_dirs() -> dict[str, str]:

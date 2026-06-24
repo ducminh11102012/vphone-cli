@@ -21,6 +21,7 @@ patch = ["capstone", "keystone-engine"]
 
 [project.scripts]
 vphone-linux = "vphone_linux.cli:main"
+vphone-linux-gui = "vphone_linux.webgui:_entry"
 
 [tool.setuptools]
 packages = ["vphone_linux"]
