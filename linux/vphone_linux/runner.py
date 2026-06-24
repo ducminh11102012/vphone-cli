@@ -41,6 +41,20 @@ def doctor(workspace: Path | None, backend: Backend) -> bool:
     else:
         util.warn("meson not on PATH (QEMU may bootstrap its own)")
 
+    # host-GPU presentation prerequisites (gl=on). iOS still renders in
+    # software; this only accelerates display blitting.
+    if any(os.path.exists(p) for p in (
+        "/usr/lib/x86_64-linux-gnu/libEGL.so.1",
+        "/usr/lib/aarch64-linux-gnu/libEGL.so.1",
+        "/usr/lib/libEGL.so.1",
+    )) or util.have("eglinfo"):
+        util.ok("host EGL present (gl=on presentation available)")
+    else:
+        util.warn(
+            "host EGL not detected; install libegl1/mesa for `gl=on`, or use "
+            "--display none / --gl off. (Configure QEMU with --enable-opengl.)"
+        )
+
     util.dim(
         "  apt deps: " + " ".join(qemu_build.BUILD_DEPS_APT)
     )

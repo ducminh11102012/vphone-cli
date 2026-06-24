@@ -19,6 +19,9 @@ BUILD_DEPS_APT = [
     "git", "ninja-build", "pkg-config", "python3", "python3-venv",
     "libglib2.0-dev", "libpixman-1-dev", "libslirp-dev", "zlib1g-dev",
     "meson", "build-essential", "flex", "bison",
+    # host-GPU presentation (gl=on) + GTK/SDL display backends
+    "libgtk-3-dev", "libsdl2-dev", "libepoxy-dev", "libgbm-dev",
+    "libegl-dev", "libvirglrenderer-dev",
 ]
 
 

@@ -16,7 +16,7 @@ from .config import Config
 from .device import DeviceProfile
 from .disks import Namespace
 from .ipsw import ExtractedFirmware
-from . import network, util
+from . import display, network, util
 
 
 @dataclass
@@ -121,11 +121,13 @@ def build(
     argv += ["-serial", "mon:stdio"]
     argv += _nvme_args(disks_dir, layout)
     argv += network.ios_network_args(cfg, workspace)
+    argv += display.display_args(cfg)
     if cfg.monitor_telnet_port:
         argv += ["-monitor", f"telnet:127.0.0.1:{cfg.monitor_telnet_port},server,nowait"]
 
     desc = (
         f"{'RESTORE' if restore else 'BOOT'} {profile.name} via {backend.name} "
-        f"({cfg.cpus} CPU, {cfg.memory_mb} MiB) — {network.describe(cfg)}"
+        f"({cfg.cpus} CPU, {cfg.memory_mb} MiB) — {network.describe(cfg)}; "
+        f"{display.describe(cfg)}"
     )
     return BootPlan(argv=argv, description=desc)

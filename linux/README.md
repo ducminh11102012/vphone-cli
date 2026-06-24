@@ -102,6 +102,22 @@ vphone-linux ssh ./ws                      # prints the SSH command to the phone
 Full details, companion-image requirements, and the exact device wiring are in
 [`NETWORKING.md`](./NETWORKING.md).
 
+## Display / GPU acceleration
+
+**iOS rendering cannot be GPU-accelerated** in these forks — they don't
+emulate the Apple GPU, so iOS draws in software on the CPU (a hard emulator
+limitation, see [`GPU.md`](./GPU.md)). What *can* use the host GPU is the
+**presentation** of that framebuffer (upload/scale/blit via OpenGL), plus
+headless/VNC output:
+
+```bash
+vphone-linux init ./ws --display gtk --gl on   # host-GPU-accelerated window
+vphone-linux init ./ws --vnc 1 --gl on         # headless host-GPU → VNC :5901
+vphone-linux init ./ws --display none          # fully headless
+```
+
+`vphone-linux doctor ./ws` reports whether host EGL is available for `gl=on`.
+
 ## Workspace layout
 
 A workspace is self-contained and movable:

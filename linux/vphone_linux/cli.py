@@ -18,7 +18,7 @@ from typing import Optional
 
 import typer
 
-from . import bootcmd, disks, ipsw, network, qemu_build, runner, util
+from . import bootcmd, disks, display, ipsw, network, qemu_build, runner, util
 from .backends import get_backend
 from .config import Config
 from .device import get_profile
@@ -55,6 +55,9 @@ def init(
     memory_mb: int = typer.Option(4096),
     net: str = typer.Option("usb-bridge", help="network mode: usb-bridge | user | off"),
     ssh_port: int = typer.Option(2222, help="host port forwarded to guest SSH"),
+    disp: str = typer.Option("auto", "--display", help="display: auto|gtk|sdl|cocoa|egl-headless|vnc|none"),
+    gl: str = typer.Option("on", help="host-GPU OpenGL presentation: on | off"),
+    vnc: int = typer.Option(0, help="VNC display number (>0 enables VNC, overrides --display)"),
 ):
     """Create a workspace and write its config."""
     be = get_backend(backend)
@@ -62,6 +65,7 @@ def init(
     cfg = Config(
         backend=be.key, device=prof.key, cpus=cpus, memory_mb=memory_mb,
         network=net, ssh_host_port=ssh_port,
+        display=disp, gl=gl, vnc_display=vnc,
     )
     cfg.save(workspace)
     for d in Config.workspace_dirs().values():
@@ -70,6 +74,7 @@ def init(
     util.info(f"backend: {be.name}")
     util.info(f"device:  {prof.describe()}")
     util.info(network.describe(cfg))
+    util.info(display.describe(cfg))
     util.dim(be.notes)
 
 
@@ -240,6 +245,7 @@ def info(workspace: Path = typer.Argument(...)):
     util.info(f"device:  {profile.describe()}")
     util.info(f"cpus={cfg.cpus} memory={cfg.memory_mb}MiB gdb={cfg.gdb_stub}")
     util.info(network.describe(cfg))
+    util.info(display.describe(cfg))
     built = qemu_build.qemu_binary_path(workspace, backend)
     (util.ok if built.exists() else util.warn)(
         f"qemu: {'built' if built.exists() else 'not built'} ({built})"

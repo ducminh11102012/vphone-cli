@@ -61,6 +61,19 @@ class Config:
     companion_memory_mb: int = 1024
     companion_cpus: int = 2
 
+    # ─── display / GPU ───────────────────────────────────────────────
+    # IMPORTANT: the forks do NOT emulate the Apple GPU; iOS renders in
+    # software. There is no way to GPU-accelerate iOS rendering itself.
+    # These options accelerate the *presentation* of the software-rendered
+    # framebuffer using the host GPU via OpenGL, and pick the output backend.
+    #   display: auto | gtk | sdl | cocoa | egl-headless | vnc | none
+    #   gl:      on | off    (host OpenGL for the display surface)
+    display: str = "auto"
+    gl: str = "on"
+    # VNC server display number base; 0 disables VNC (overrides `display`).
+    # When >0, the server listens on 127.0.0.1:(5900 + vnc_display).
+    vnc_display: int = 0
+
     # ─── workspace-relative layout ───────────────────────────────────
     @staticmethod
     def workspace_dirs() -> dict[str, str]:
