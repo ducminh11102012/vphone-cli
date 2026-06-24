@@ -1,0 +1,7 @@
+typer>=0.9
+pyimg4
+# optional but recommended
+tomli_w
+# only needed if you reuse the firmware patchers
+capstone
+keystone-engine
