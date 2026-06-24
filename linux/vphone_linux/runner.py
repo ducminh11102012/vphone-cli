@@ -18,15 +18,23 @@ def doctor(workspace: Path | None, backend: Backend) -> bool:
     util.step("Environment check")
     ok = True
 
-    # host arch note — TCG works everywhere but is slow off aarch64 hosts
+    # host arch note. KVM is NOT usable for t8030 on ANY host: the guest
+    # relies on Apple-proprietary CPU features (SPRR/GXF, custom PAC) that the
+    # fork emulates in TCG and that no real host CPU — not even Apple Silicon
+    # via Linux/KVM — exposes. So it is always TCG; an aarch64 host is only
+    # faster because ARM→ARM translation is cheaper, not because of KVM.
     machine = os.uname().machine
     if machine not in ("aarch64", "arm64"):
         util.warn(
-            f"host arch is {machine}; emulation runs under TCG (software) and "
-            "will be slow but functional. aarch64 hosts are much faster."
+            f"host arch is {machine}; always TCG (KVM cannot run t8030). "
+            "ARM→x86 translation is heavy, so this is slow but functional. An "
+            "aarch64 host is much faster — still TCG, just cheaper translation."
         )
     else:
-        util.ok(f"host arch {machine} (good for TCG)")
+        util.ok(
+            f"host arch {machine}: TCG with cheap ARM→ARM translation "
+            "(fastest available; KVM still does not apply to t8030)"
+        )
 
     for tool in ("git", "make", "ninja", "pkg-config"):
         if util.have(tool):

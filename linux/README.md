@@ -38,8 +38,11 @@ instead of a wiki crawl.
   otherwise you must supply one (see *Tickets* below). Emulated SEP does not
   need real SHSH blobs, but it needs a well-formed ticket.
 - ❌ Targets only **t8030 / iPhone 11 / iOS 14.x** — the range the forks boot.
-- ❌ Runs under TCG on x86_64 hosts (correct but slow); aarch64 hosts are far
-  faster.
+- ❌ **Always runs under TCG — KVM never applies.** The t8030 guest needs
+  Apple-proprietary CPU features (SPRR/GXF, custom PAC) the fork emulates in
+  TCG; no real host CPU exposes them, not even Apple Silicon via Linux/KVM. An
+  aarch64 host is faster only because ARM→ARM translation is cheaper, not
+  because of hardware virtualization.
 
 ## Install
 
