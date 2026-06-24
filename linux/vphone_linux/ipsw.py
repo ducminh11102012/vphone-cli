@@ -95,18 +95,26 @@ def _component_path(identity: dict, key: str) -> str | None:
 
 # ─── IM4P decode ─────────────────────────────────────────────────────
 def _maybe_im4p_decode(data: bytes, out: Path) -> None:
-    """Write `data`, decoding an IM4P wrapper to its raw payload if present."""
-    if data[:4] == b"\x30\x82" or data[4:8] == b"IM4P" or b"IM4P" in data[:64]:
+    """Write `data`, unwrapping an IM4P container to its raw payload if present.
+
+    The payload is always unwrapped (the QEMU forks want the raw component, not
+    the IM4P envelope); decompression is attempted but a not-compressed payload
+    is fine. Non-IM4P data (e.g. a raw .dmg) is written through unchanged.
+    """
+    if data[4:8] == b"IM4P":
         try:
             import pyimg4
 
             im4p = pyimg4.IM4P(data)
             payload = im4p.payload
-            payload.decompress()
+            try:
+                payload.decompress()  # no-op / raises if not compressed
+            except Exception:
+                pass
             out.write_bytes(payload.output().data)
             return
-        except Exception as exc:  # fall back to raw bytes
-            util.warn(f"IM4P decode failed for {out.name} ({exc}); writing raw")
+        except Exception as exc:  # not a parseable IM4P → keep raw
+            util.warn(f"IM4P unwrap failed for {out.name} ({exc}); writing raw")
     out.write_bytes(data)
 
 
