@@ -128,7 +128,11 @@ def prepare(
 def _make_plan(workspace: Path, restore: bool, main_gb: int) -> bootcmd.BootPlan:
     cfg, backend, profile = _resolve(workspace)
     binary = qemu_build.qemu_binary_path(workspace, backend)
-    util.require_files([binary])
+    try:
+        util.require_files([binary])
+    except FileNotFoundError:
+        util.err(f"QEMU not built — run `vphone-linux build {workspace}` first")
+        raise typer.Exit(2)
     fw_dir = workspace / Config.workspace_dirs()["firmware"]
     fw = ipsw.ExtractedFirmware(root=fw_dir)
     # re-discover already-extracted components by friendly name
@@ -147,10 +151,15 @@ def _make_plan(workspace: Path, restore: bool, main_gb: int) -> bootcmd.BootPlan
     fw.ticket = t if t.exists() else None
     layout = disks.default_layout(main_gb)
     disks.ensure_images(workspace / Config.workspace_dirs()["disks"], layout)
-    return bootcmd.build(
-        workspace=workspace, backend=backend, profile=profile, cfg=cfg,
-        fw=fw, layout=layout, qemu_binary=binary, restore=restore,
-    )
+    try:
+        return bootcmd.build(
+            workspace=workspace, backend=backend, profile=profile, cfg=cfg,
+            fw=fw, layout=layout, qemu_binary=binary, restore=restore,
+        )
+    except util.CommandError as exc:
+        util.err(str(exc))
+        util.warn(f"run `vphone-linux fetch {workspace} <IPSW>` to extract firmware first")
+        raise typer.Exit(2)
 
 
 # ─── plan (dry run) ───────────────────────────────────────────────────

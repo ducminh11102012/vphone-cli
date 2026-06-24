@@ -55,10 +55,59 @@ def clone_or_update(workspace: Path, backend: Backend, ref: str) -> None:
     util.run(["git", "submodule", "update", "--init", "--recursive"], cwd=src, check=False)
 
 
+def apply_source_fixes(workspace: Path) -> None:
+    """Apply the source-level fixes needed to build the t8030 fork (7.1.0).
+
+    Both are idempotent and guarded — they no-op if the tree already differs
+    (e.g. a newer fork that fixed them upstream). See BUILD.md for the why.
+    """
+    src = src_dir(workspace)
+
+    # 1) qapi/ui.json: QKeyCode is trimmed to f1–f12, but generated keymaps
+    #    reference F13–F24. Add the missing enum entries.
+    ui_json = src / "qapi" / "ui.json"
+    if ui_json.exists():
+        text = ui_json.read_text()
+        if "'f13'" not in text and "'lang1', 'lang2' ] }" in text:
+            text = text.replace(
+                "'lang1', 'lang2' ] }",
+                "'lang1', 'lang2',\n"
+                "            'f13', 'f14', 'f15', 'f16', 'f17', 'f18',\n"
+                "            'f19', 'f20', 'f21', 'f22', 'f23', 'f24' ] }",
+            )
+            ui_json.write_text(text)
+            util.ok("patched qapi/ui.json (QKeyCode f13–f24)")
+
+    # 2) meson.build: libtasn1 detection is gated behind gnutls. Ungate it so
+    #    hw/arm/xnu.c links (asn1_* symbols).
+    meson = src / "meson.build"
+    if meson.exists():
+        text = meson.read_text()
+        gated = (
+            "tasn1 = not_found\n"
+            "if gnutls.found()\n"
+            "  tasn1 = dependency('libtasn1',\n"
+            "                     method: 'pkg-config',\n"
+            "                     kwargs: static_kwargs)\n"
+            "endif"
+        )
+        if gated in text:
+            text = text.replace(
+                gated,
+                "tasn1 = dependency('libtasn1',\n"
+                "                   method: 'pkg-config',\n"
+                "                   required: false,\n"
+                "                   kwargs: static_kwargs)",
+            )
+            meson.write_text(text)
+            util.ok("patched meson.build (ungate libtasn1 from gnutls)")
+
+
 def configure_and_make(workspace: Path, backend: Backend, jobs: int | None = None) -> Path:
     src = src_dir(workspace)
     build = build_dir(workspace)
     build.mkdir(parents=True, exist_ok=True)
+    apply_source_fixes(workspace)
 
     util.step(f"Configuring {backend.name}")
     configure = src / "configure"
